@@ -181,9 +181,40 @@ def extract_text_from_parts(parts: list) -> str:
         return ""
     texts = []
     for part in parts:
-        if isinstance(part, dict) and part.get("kind") == "text":
-            texts.append(part.get("text", ""))
+        if isinstance(part, dict):
+            # Handle both "kind" and "type" for compatibility
+            if part.get("kind") == "text" or part.get("type") == "text":
+                texts.append(part.get("text", ""))
+            # Handle nested root structure
+            elif "root" in part:
+                root = part["root"]
+                if isinstance(root, dict) and (root.get("kind") == "text" or root.get("type") == "text"):
+                    texts.append(root.get("text", ""))
     return "\n".join(texts)
+
+
+def extract_text_from_result(obj: dict) -> str:
+    """Extract text from various A2A result structures."""
+    if not obj:
+        return ""
+
+    # Direct text field
+    if "text" in obj:
+        return obj["text"]
+
+    # Parts array
+    if "parts" in obj:
+        return extract_text_from_parts(obj["parts"])
+
+    # Nested message structure
+    if "message" in obj:
+        return extract_text_from_result(obj["message"])
+
+    # Root wrapper (Pydantic model serialization)
+    if "root" in obj:
+        return extract_text_from_result(obj["root"])
+
+    return ""
 
 
 def extract_task_info(result: dict) -> dict | None:
@@ -342,10 +373,13 @@ else:
             status_messages = []
             final_response = None
             final_state = "completed"
+            debug_events = []
 
             for item in send_message_stream(agent_url, prompt, st.session_state.context_id):
                 if item["type"] == "event":
                     data = item["data"]
+                    debug_events.append(data)
+
                     if "result" in data:
                         result = data["result"]
 
@@ -359,44 +393,35 @@ else:
                             status = result["status"]
                             state = status.get("state", "")
 
+                            # Extract text from message
+                            msg = status.get("message", {})
+                            text = extract_text_from_result(msg)
+
                             if state == "working":
-                                msg = status.get("message", {})
-                                parts = msg.get("parts", [])
-                                for part in parts:
-                                    if part.get("kind") == "text":
-                                        status_messages.append(part.get("text", ""))
+                                if text:
+                                    status_messages.append(text)
 
                             elif state == "input_required":
                                 final_state = "input_required"
-                                msg = status.get("message", {})
-                                parts = msg.get("parts", [])
-                                for part in parts:
-                                    if part.get("kind") == "text":
-                                        final_response = part.get("text", "")
+                                if text:
+                                    final_response = text
 
                             elif state == "completed":
                                 final_state = "completed"
-                                msg = status.get("message", {})
-                                parts = msg.get("parts", [])
-                                for part in parts:
-                                    if part.get("kind") == "text":
-                                        final_response = part.get("text", "")
+                                if text:
+                                    final_response = text
 
                             elif state == "failed":
                                 final_state = "failed"
-                                msg = status.get("message", {})
-                                parts = msg.get("parts", [])
-                                for part in parts:
-                                    if part.get("kind") == "text":
-                                        final_response = part.get("text", "")
+                                if text:
+                                    final_response = text
 
                         # Handle artifacts
                         if "artifact" in result:
                             artifact = result["artifact"]
-                            parts = artifact.get("parts", [])
-                            for part in parts:
-                                if part.get("kind") == "text":
-                                    final_response = part.get("text", "")
+                            text = extract_text_from_result(artifact)
+                            if text:
+                                final_response = text
                             final_state = "completed"
 
                 elif item["type"] == "error":
@@ -419,6 +444,14 @@ else:
                     "role": "assistant",
                     "content": final_response,
                     "type": msg_type,
+                })
+
+            # If no response was extracted, show debug info
+            if not final_response and not status_messages and debug_events:
+                st.session_state.chat_messages.append({
+                    "role": "assistant",
+                    "type": "error",
+                    "content": f"No text extracted. Raw events: {json.dumps(debug_events, indent=2, default=str)[:1000]}",
                 })
 
             # Update state
