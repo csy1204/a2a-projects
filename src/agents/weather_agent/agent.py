@@ -3,6 +3,7 @@
 LangGraph 1.0+ / LangChain 1.1+ compatible.
 """
 
+import json
 import os
 from collections.abc import AsyncIterable
 from typing import Any, Literal
@@ -155,29 +156,37 @@ class WeatherAgent:
         Returns:
             Dictionary containing task completion state and response content.
         """
-        # Use async get_state for LangGraph 1.0+
         current_state = await self.graph.aget_state(config)
         structured_response = current_state.values.get('structured_response')
 
+        print(f"structured_response: {structured_response}")
+
+        # Try to get from structured_response first
         if structured_response and isinstance(structured_response, WeatherResponseFormat):
-            if structured_response.status == 'input_required':
-                return {
-                    'is_task_complete': False,
-                    'require_user_input': True,
-                    'content': structured_response.message,
-                }
-            if structured_response.status == 'error':
-                return {
-                    'is_task_complete': False,
-                    'require_user_input': True,
-                    'content': structured_response.message,
-                }
-            if structured_response.status == 'completed':
-                return {
-                    'is_task_complete': True,
-                    'require_user_input': False,
-                    'content': structured_response.message,
-                }
+            print(f"WeatherResponseFormat: {structured_response}")
+            output = self._format_response(structured_response)
+            print(f"output: {output}")
+            return output
+        
+        messages = current_state.values.get('messages', [])
+        if messages:
+            last_message = messages[-1]
+            if isinstance(last_message, AIMessage):
+                # For ToolStrategy: check tool_calls
+                if last_message.tool_calls:
+                    for tool_call in last_message.tool_calls:
+                        if tool_call.get('name') == 'WeatherResponseFormat':
+                            args = tool_call.get('args', {})
+                            return self._format_response(WeatherResponseFormat(
+                                status=args.get('status', 'input_required'),
+                                message=args.get('message', ''),
+                            ))
+
+                # Fallback: parse JSON from message content
+                if last_message.content:
+                    parsed = self._try_parse_json_response(last_message.content)
+                    if parsed:
+                        return parsed
 
         return {
             'is_task_complete': False,
@@ -186,6 +195,74 @@ class WeatherAgent:
                 'Unable to process your weather request at the moment. '
                 'Please try again.'
             ),
+        }
+
+    def _try_parse_json_response(self, content: Any) -> dict[str, Any] | None:
+        """Try to parse JSON response from message content."""
+        # Extract text from content (can be str, list of blocks, etc.)
+        text = self._extract_text_content(content)
+        if not text:
+            return None
+
+        try:
+            data = json.loads(text)
+
+            # Handle array format: [{"name": "WeatherResponseFormat", "parameters": {...}}]
+            if isinstance(data, list) and len(data) > 0:
+                for item in data:
+                    if isinstance(item, dict) and item.get('name') == 'WeatherResponseFormat':
+                        params = item.get('parameters', {})
+                        if 'status' in params and 'message' in params:
+                            return self._format_response(WeatherResponseFormat(
+                                status=params['status'],
+                                message=params['message'],
+                            ))
+
+            # Handle direct dict format: {"status": "...", "message": "..."}
+            if isinstance(data, dict) and 'status' in data and 'message' in data:
+                return self._format_response(WeatherResponseFormat(
+                    status=data['status'],
+                    message=data['message'],
+                ))
+        except (json.JSONDecodeError, TypeError, KeyError, ValueError):
+            pass
+        return None
+
+    def _extract_text_content(self, content: Any) -> str | None:
+        """Extract text from various content formats."""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            # Handle list of content blocks
+            for block in content:
+                if isinstance(block, str):
+                    return block
+                if isinstance(block, dict):
+                    if block.get('type') == 'text':
+                        return block.get('text')
+                    if 'text' in block:
+                        return block['text']
+        return None
+
+    def _format_response(self, response: WeatherResponseFormat) -> dict[str, Any]:
+        """Format WeatherResponseFormat to dict."""
+        if response.status == 'input_required':
+            return {
+                'is_task_complete': False,
+                'require_user_input': True,
+                'content': response.message,
+            }
+        if response.status == 'error':
+            return {
+                'is_task_complete': False,
+                'require_user_input': True,
+                'content': response.message,
+            }
+        # completed
+        return {
+            'is_task_complete': True,
+            'require_user_input': False,
+            'content': response.message,
         }
 
     def get_agent_response(self, config: dict) -> dict[str, Any]:
@@ -200,27 +277,29 @@ class WeatherAgent:
         current_state = self.graph.get_state(config)
         structured_response = current_state.values.get('structured_response')
 
-        if structured_response and isinstance(
-            structured_response, WeatherResponseFormat
-        ):
-            if structured_response.status == 'input_required':
-                return {
-                    'is_task_complete': False,
-                    'require_user_input': True,
-                    'content': structured_response.message,
-                }
-            if structured_response.status == 'error':
-                return {
-                    'is_task_complete': False,
-                    'require_user_input': True,
-                    'content': structured_response.message,
-                }
-            if structured_response.status == 'completed':
-                return {
-                    'is_task_complete': True,
-                    'require_user_input': False,
-                    'content': structured_response.message,
-                }
+        # Try to get from structured_response first
+        if structured_response and isinstance(structured_response, WeatherResponseFormat):
+            return self._format_response(structured_response)
+
+        messages = current_state.values.get('messages', [])
+        if messages:
+            last_message = messages[-1]
+            if isinstance(last_message, AIMessage):
+                # For ToolStrategy: check tool_calls
+                if last_message.tool_calls:
+                    for tool_call in last_message.tool_calls:
+                        if tool_call.get('name') == 'WeatherResponseFormat':
+                            args = tool_call.get('args', {})
+                            return self._format_response(WeatherResponseFormat(
+                                status=args.get('status', 'input_required'),
+                                message=args.get('message', ''),
+                            ))
+
+                # Fallback: parse JSON from message content
+                if last_message.content:
+                    parsed = self._try_parse_json_response(last_message.content)
+                    if parsed:
+                        return parsed
 
         return {
             'is_task_complete': False,

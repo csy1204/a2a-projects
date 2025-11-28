@@ -23,6 +23,8 @@ from a2a.types import (
 )
 from dotenv import load_dotenv
 
+from observability import init_tracing
+
 from .agent import WeatherAgent
 from .agent_executor import WeatherAgentExecutor
 
@@ -63,6 +65,9 @@ def main(host: str, port: int):
             raise MissingAPIKeyError(
                 'OPENWEATHER_API_KEY environment variable not set.'
             )
+
+        # Initialize Phoenix tracing for observability
+        init_tracing(project_name='weather-agent')
 
         # Define agent capabilities
         capabilities = AgentCapabilities(streaming=True, push_notifications=True)
