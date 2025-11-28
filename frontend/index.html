@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2A Agent Tester</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4ecca3;
+        }
+
+        .connection-panel {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .connection-panel h2 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #4ecca3;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #0f3460;
+            color: #eee;
+            font-size: 14px;
+        }
+
+        .input-group input::placeholder {
+            color: #888;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            background: #4ecca3;
+            color: #1a1a2e;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #3ab892;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #e94560;
+        }
+
+        .btn-secondary:hover {
+            background: #d63850;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #16213e;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: #0f3460;
+            padding: 15px 20px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-body {
+            padding: 20px;
+        }
+
+        .agent-card {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e94560;
+        }
+
+        .status-dot.connected {
+            background: #4ecca3;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+
+        .message.user {
+            background: #4ecca3;
+            color: #1a1a2e;
+            margin-left: auto;
+        }
+
+        .message.agent {
+            background: #16213e;
+        }
+
+        .message.system {
+            background: #e94560;
+            font-size: 0.9em;
+            text-align: center;
+            max-width: 100%;
+        }
+
+        .message.working {
+            background: #f39c12;
+            color: #1a1a2e;
+            font-style: italic;
+        }
+
+        .message-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #0f3460;
+            color: #eee;
+            font-size: 14px;
+        }
+
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .skill-tag {
+            background: #4ecca3;
+            color: #1a1a2e;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            cursor: pointer;
+        }
+
+        .skill-tag:hover {
+            background: #3ab892;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+
+        .info-label {
+            color: #888;
+            width: 100px;
+        }
+
+        .info-value {
+            color: #4ecca3;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #4ecca3;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>A2A Agent Tester</h1>
+
+        <div class="connection-panel">
+            <h2>Agent Connection</h2>
+            <div class="input-group">
+                <input type="text" id="agentUrl" placeholder="Agent URL (e.g., http://localhost:10000)" value="http://localhost:10000">
+                <button id="connectBtn" onclick="connectAgent()">Connect</button>
+                <button id="disconnectBtn" class="btn-secondary hidden" onclick="disconnectAgent()">Disconnect</button>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Agent Card</span>
+                    <button onclick="refreshAgentCard()" style="padding: 5px 10px; font-size: 12px;">Refresh</button>
+                </div>
+                <div class="panel-body">
+                    <div id="agentInfo" class="hidden">
+                        <div class="info-row">
+                            <span class="info-label">Name:</span>
+                            <span class="info-value" id="agentName">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Version:</span>
+                            <span class="info-value" id="agentVersion">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Description:</span>
+                            <span class="info-value" id="agentDescription">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Streaming:</span>
+                            <span class="info-value" id="agentStreaming">-</span>
+                        </div>
+                        <div id="skillsContainer">
+                            <p style="color: #888; margin-top: 15px;">Skills:</p>
+                            <div class="skills-list" id="skillsList"></div>
+                        </div>
+                    </div>
+                    <div id="rawCard" class="agent-card">Connect to an agent to view its card...</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Chat</span>
+                    <span id="taskState" style="font-size: 12px; color: #888;">-</span>
+                </div>
+                <div class="panel-body">
+                    <div class="chat-container" id="chatContainer">
+                        <div class="message system">Connect to an agent to start chatting</div>
+                    </div>
+                    <div class="message-input">
+                        <input type="text" id="messageInput" placeholder="Type your message..." disabled onkeypress="handleKeyPress(event)">
+                        <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let agentCard = null;
+        let currentTaskId = null;
+        let contextId = crypto.randomUUID();
+
+        function getAgentUrl() {
+            return document.getElementById('agentUrl').value.replace(/\/$/, '');
+        }
+
+        async function connectAgent() {
+            const url = getAgentUrl();
+            try {
+                const response = await fetch(`${url}/.well-known/agent.json`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                agentCard = await response.json();
+
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('statusText').textContent = 'Connected';
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('disconnectBtn').classList.remove('hidden');
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+
+                displayAgentCard(agentCard);
+                clearChat();
+                addMessage('system', `Connected to ${agentCard.name}`);
+
+            } catch (error) {
+                alert(`Failed to connect: ${error.message}`);
+            }
+        }
+
+        function disconnectAgent() {
+            agentCard = null;
+            currentTaskId = null;
+            contextId = crypto.randomUUID();
+
+            document.getElementById('statusDot').classList.remove('connected');
+            document.getElementById('statusText').textContent = 'Disconnected';
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('hidden');
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendBtn').disabled = true;
+            document.getElementById('agentInfo').classList.add('hidden');
+            document.getElementById('rawCard').textContent = 'Connect to an agent to view its card...';
+            document.getElementById('taskState').textContent = '-';
+
+            clearChat();
+            addMessage('system', 'Disconnected');
+        }
+
+        function displayAgentCard(card) {
+            document.getElementById('agentInfo').classList.remove('hidden');
+            document.getElementById('agentName').textContent = card.name || '-';
+            document.getElementById('agentVersion').textContent = card.version || '-';
+            document.getElementById('agentDescription').textContent = card.description || '-';
+            document.getElementById('agentStreaming').textContent = card.capabilities?.streaming ? 'Yes' : 'No';
+
+            const skillsList = document.getElementById('skillsList');
+            skillsList.innerHTML = '';
+
+            if (card.skills && card.skills.length > 0) {
+                card.skills.forEach(skill => {
+                    const tag = document.createElement('span');
+                    tag.className = 'skill-tag';
+                    tag.textContent = skill.name;
+                    tag.title = skill.description;
+                    tag.onclick = () => {
+                        if (skill.examples && skill.examples.length > 0) {
+                            document.getElementById('messageInput').value = skill.examples[0];
+                        }
+                    };
+                    skillsList.appendChild(tag);
+                });
+            }
+
+            document.getElementById('rawCard').textContent = JSON.stringify(card, null, 2);
+        }
+
+        async function refreshAgentCard() {
+            if (agentCard) {
+                await connectAgent();
+            }
+        }
+
+        function clearChat() {
+            document.getElementById('chatContainer').innerHTML = '';
+        }
+
+        function addMessage(type, text) {
+            const container = document.getElementById('chatContainer');
+            const msg = document.createElement('div');
+            msg.className = `message ${type}`;
+            msg.textContent = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+            return msg;
+        }
+
+        function updateTaskState(state) {
+            document.getElementById('taskState').textContent = state;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message || !agentCard) return;
+
+            input.value = '';
+            addMessage('user', message);
+
+            const url = getAgentUrl();
+            const useStreaming = agentCard.capabilities?.streaming;
+
+            const payload = {
+                jsonrpc: '2.0',
+                id: crypto.randomUUID(),
+                method: currentTaskId ? 'tasks/send' : 'tasks/send',
+                params: {
+                    id: currentTaskId || crypto.randomUUID(),
+                    message: {
+                        role: 'user',
+                        parts: [{ type: 'text', text: message }]
+                    },
+                    configuration: {
+                        acceptedOutputModes: ['text', 'text/plain']
+                    }
+                }
+            };
+
+            if (!currentTaskId) {
+                payload.params.contextId = contextId;
+            }
+
+            try {
+                if (useStreaming) {
+                    await sendStreamingMessage(url, payload);
+                } else {
+                    await sendNonStreamingMessage(url, payload);
+                }
+            } catch (error) {
+                addMessage('system', `Error: ${error.message}`);
+            }
+        }
+
+        async function sendStreamingMessage(url, payload) {
+            payload.method = 'tasks/sendSubscribe';
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let workingMsg = null;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            handleStreamEvent(data, workingMsg, (msg) => { workingMsg = msg; });
+                        } catch (e) {
+                            // Skip invalid JSON
+                        }
+                    }
+                }
+            }
+        }
+
+        function handleStreamEvent(data, workingMsg, setWorkingMsg) {
+            if (data.result) {
+                const result = data.result;
+
+                if (result.id) {
+                    currentTaskId = result.id;
+                }
+
+                if (result.status) {
+                    updateTaskState(result.status.state);
+
+                    if (result.status.message) {
+                        const text = extractText(result.status.message);
+                        if (text) {
+                            if (result.status.state === 'working') {
+                                if (workingMsg) {
+                                    workingMsg.textContent = text;
+                                } else {
+                                    setWorkingMsg(addMessage('working', text));
+                                }
+                            } else {
+                                if (workingMsg) {
+                                    workingMsg.remove();
+                                    setWorkingMsg(null);
+                                }
+                                addMessage('agent', text);
+                            }
+                        }
+                    }
+                }
+
+                if (result.artifact) {
+                    const text = extractArtifactText(result.artifact);
+                    if (text) {
+                        if (workingMsg) {
+                            workingMsg.remove();
+                            setWorkingMsg(null);
+                        }
+                        addMessage('agent', text);
+                    }
+                }
+
+                if (result.status?.state === 'completed' || result.status?.state === 'failed') {
+                    currentTaskId = null;
+                }
+            }
+        }
+
+        async function sendNonStreamingMessage(url, payload) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+
+            if (data.result) {
+                currentTaskId = data.result.id;
+                updateTaskState(data.result.status?.state || '-');
+
+                if (data.result.status?.message) {
+                    const text = extractText(data.result.status.message);
+                    if (text) addMessage('agent', text);
+                }
+
+                if (data.result.artifacts) {
+                    data.result.artifacts.forEach(artifact => {
+                        const text = extractArtifactText(artifact);
+                        if (text) addMessage('agent', text);
+                    });
+                }
+
+                if (data.result.status?.state === 'completed' || data.result.status?.state === 'failed') {
+                    currentTaskId = null;
+                }
+            } else if (data.error) {
+                addMessage('system', `Error: ${data.error.message}`);
+            }
+        }
+
+        function extractText(message) {
+            if (!message?.parts) return null;
+            return message.parts
+                .filter(p => p.type === 'text')
+                .map(p => p.text)
+                .join('\n');
+        }
+
+        function extractArtifactText(artifact) {
+            if (!artifact?.parts) return null;
+            return artifact.parts
+                .filter(p => p.type === 'text')
+                .map(p => p.text)
+                .join('\n');
+        }
+    </script>
+</body>
+</html>
