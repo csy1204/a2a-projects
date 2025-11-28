@@ -1,0 +1,11 @@
+{
+  "environment": "development",
+  "server": {
+    "host": "localhost",
+    "port": 10000,
+    "workers": 1
+  },
+  "logging": {
+    "level": "DEBUG"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "agent": {
+    "name": "weather_agent",
+    "version": "1.0.0",
+    "description": "LangGraph-based weather information agent"
+  },
+  "model": {
+    "name": "gemini-2.0-flash",
+    "source": "google",
+    "temperature": 0,
+    "max_tokens": 1024
+  },
+  "tools": {
+    "weather_api": {
+      "enabled": true,
+      "cache_ttl_minutes": 30
+    },
+    "weather_db": {
+      "enabled": true,
+      "db_path": "./data/weather.db"
+    }
+  },
+  "server": {
+    "host": "localhost",
+    "port": 10000
+  }
+}

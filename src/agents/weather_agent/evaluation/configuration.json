@@ -1,0 +1,7 @@
+{
+  "evaluation": {
+    "test_data_path": "./test_data/",
+    "metrics": ["accuracy", "latency", "tool_usage"],
+    "num_samples": 100
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "monitoring": {
+    "storage_location": "./logs/",
+    "thresholds": {
+      "latency_ms": 5000,
+      "error_rate": 0.05
+    },
+    "alert_channels": ["slack", "email"]
+  }
+}
