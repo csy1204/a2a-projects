@@ -8,6 +8,8 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from observability import trace_tool
+
 from .models import SCHEMA_SQL
 
 
@@ -36,6 +38,7 @@ def init_db() -> None:
 
 
 @tool
+@trace_tool(name="db.save_weather_query")
 def save_weather_query(
     city: str,
     query_type: str,
@@ -82,6 +85,7 @@ def save_weather_query(
 
 
 @tool
+@trace_tool(name="db.get_weather_history")
 def get_weather_history(
     city: str = '',
     limit: int = 10,

@@ -5,8 +5,11 @@ import os
 import httpx
 from langchain_core.tools import tool
 
+from observability import trace_tool
+
 
 @tool
+@trace_tool(name="weather.get_current")
 def get_current_weather(
     city: str,
     units: str = 'metric',
@@ -60,6 +63,7 @@ def get_current_weather(
 
 
 @tool
+@trace_tool(name="weather.get_forecast")
 def get_weather_forecast(
     city: str,
     units: str = 'metric',
