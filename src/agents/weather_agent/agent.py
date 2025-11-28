@@ -12,7 +12,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
-from langchain.agents.structured_output import AutoStrategy
+from langchain.agents.structured_output import ToolStrategy
 from pydantic import BaseModel, Field
 
 from src.tools.api_tools.weather_api.weather_api import (
@@ -81,6 +81,7 @@ class WeatherAgent:
             self.model = ChatGoogleGenerativeAI(
                 model=os.getenv('GOOGLE_MODEL_NAME', 'gemini-2.0-flash'),
                 temperature=0,
+                max_retries=2,
             )
         else:
             self.model = ChatOpenAI(
@@ -88,6 +89,7 @@ class WeatherAgent:
                 api_key=os.getenv('API_KEY', 'EMPTY'),
                 base_url=os.getenv('TOOL_LLM_URL'),
                 temperature=0,
+                max_retries=2,
             )
 
         self.tools = [
@@ -106,9 +108,7 @@ class WeatherAgent:
             tools=self.tools,
             checkpointer=self.memory,
             system_prompt=self.SYSTEM_INSTRUCTION,
-            response_format=AutoStrategy(
-                WeatherResponseFormat
-            ),  # (self.FORMAT_INSTRUCTION, WeatherResponseFormat),
+            response_format=ToolStrategy(WeatherResponseFormat),
         )
 
     async def stream(self, query: str, context_id: str) -> AsyncIterable[dict[str, Any]]:
